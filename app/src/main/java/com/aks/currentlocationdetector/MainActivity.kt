@@ -1,5 +1,7 @@
 package com.aks.currentlocationdetector
 
+import android.annotation.SuppressLint
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
@@ -10,6 +12,7 @@ import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.databinding.DataBindingUtil
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModelProvider
@@ -34,7 +37,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding : ActivityMainBinding
     private var imageList = arrayListOf<ImageModel>()
     private val id = 0
-
+    private val permission = arrayOf(
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO"
+    )
     @Inject
     lateinit var mainViewModelProviderFactory : MainViewModelProviderFactory
 
@@ -103,7 +111,7 @@ class MainActivity : AppCompatActivity() {
 
         /**3. run */
 
-        //## The context object used as a receiver (this)
+        // ## The context object used as a receiver (this)
         // ## Return a lambda
 
         newCompanyObj = Company().apply {
@@ -159,16 +167,20 @@ class MainActivity : AppCompatActivity() {
                 binding.chatFabText.visibility = View.GONE
             }else if (scrollX == scrollY){
                 binding.chatFabText.visibility = View.VISIBLE
-            }
-            else{
+            }else{
                 binding.chatFabText.visibility = View.VISIBLE
             }
         }
+        storagePermissionLauncher.launch(permission)
+//        if (ContextCompat.checkSelfPermission(this@MainActivity,"android.permission.READ_EXTERNAL_STORAGE") == PackageManager.PERMISSION_GRANTED ||
+//                ContextCompat.checkSelfPermission(this@MainActivity,"android.permission.READ_MEDIA_IMAGES") == PackageManager.PERMISSION_GRANTED){
+//            CoroutineScope(Dispatchers.IO).launch {
+//                viewModel.getAllImage()
+//            }
+//        }else{
+//            storagePermissionLauncher.launch(permission)
+//        }
 
-
-        CoroutineScope(Dispatchers.IO).launch {
-            viewModel.getAllImage()
-        }
         CoroutineScope(Dispatchers.Main).launch {
             viewModel.getAllImageResource.observe(this@MainActivity){
                 when(it){
@@ -212,6 +224,7 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     private fun observeLiveData(list: LiveData<List<ImageModel>>) {
         list.observe(this@MainActivity){
             if (it.isNotEmpty()){
@@ -223,12 +236,31 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val storagePermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){
+        var readExternalStorage = false
+        var readMediaImage = false
+        for (i in it){
+            when(i.key){
+                "android.permission.READ_MEDIA_VIDEO"->{
+                    readMediaImage = true
+                }
+                "android.permission.READ_EXTERNAL_STORAGE"->{
+                    readExternalStorage = true
+                }
+            }
+        }
+        if (readExternalStorage || readMediaImage){
+            CoroutineScope(Dispatchers.IO).launch {
+                viewModel.getAllImage()
+            }
+        }
+    }
     private val chooseImageFromGalleryLauncher = registerForActivityResult(ActivityResultContracts.GetMultipleContents()){
         imageList = arrayListOf()
         it?.let {
             for (uri in it){
-                val uri = convertUriToBmp(uri)
-                imageList.add(ImageModel(uri,"Anil"))
+//                val uri = convertUriToBmp(uri)
+                imageList.add(ImageModel(uri.toString(),"Anil"))
             }
 
             if (imageList.isNotEmpty()){
